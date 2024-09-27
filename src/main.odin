@@ -1,6 +1,6 @@
-package text_rendering
+package game
 
-import text "../shared/text2"
+import "../shared/text"
 import "core:fmt"
 import glm "core:math/linalg/glsl"
 import "core:mem"

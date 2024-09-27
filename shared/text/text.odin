@@ -1,4 +1,4 @@
-package text2
+package text
 
 import "core:bytes"
 // import "core:fmt"

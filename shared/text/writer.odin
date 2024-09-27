@@ -1,4 +1,4 @@
-package text2
+package text
 
 import "core:fmt"
 import "core:math"
@@ -7,10 +7,10 @@ import "core:strings"
 import gl "vendor:wasm/WebGL"
 import "vendor:wasm/js"
 
-// Run assets/smallest_atlas/t.odin script first
-atlas_20_data := #load("../../assets/smallest_atlas/data-20.jatlas")
-atlas_30_data := #load("../../assets/smallest_atlas/data-30.jatlas")
-atlas_40_data := #load("../../assets/smallest_atlas/data-40.jatlas")
+// Run assets/t.odin script first
+atlas_20_data := #load("../../assets/data/data-20.jatlas")
+atlas_30_data := #load("../../assets/data/data-30.jatlas")
+atlas_40_data := #load("../../assets/data/data-40.jatlas")
 vert_source := #load("text.vert", string)
 frag_source := #load("text.frag", string)
 

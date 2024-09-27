@@ -69,7 +69,7 @@ def args():
 	args = sys.argv[1:]
 	build_go = "-g" in args
 	build_odin = "-o" in args
-	return Args("text_rendering2", build_go, build_odin)
+	return Args("src", build_go, build_odin)
 
 
 main(args())
