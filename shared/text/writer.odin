@@ -70,8 +70,6 @@ writer_destroy :: proc(w: ^Writer($N)) {
 
 }
 writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: i32) {
-	fmt.println("writer_update_buffer_data:", w)
-	fmt.printf("atlas %dx%d\n", w.atlas.w, w.atlas.h)
 	data_len := w.next_buf_i
 	if data_len < 1 {
 		return

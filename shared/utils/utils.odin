@@ -42,11 +42,9 @@ buffer_init :: proc(b: ^Buffer, data: []$T) {
 
 ea_buffer_init :: proc(b: ^EaBuffer, data: []$T) {
 	b.count = (len(data) * size_of(T)) / 2 // 2 is size of unsigned_short (u16)
-	fmt.println("b.count:", b.count)
 	b.offset = nil
 	b.id = gl.CreateBuffer()
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, b.id)
-	fmt.println(b)
 	gl.BufferDataSlice(gl.ELEMENT_ARRAY_BUFFER, data[:], b.usage)
 }
 

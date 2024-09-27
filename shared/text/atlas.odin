@@ -18,7 +18,6 @@ Atlas :: struct {
 	h:            i32,
 	header:       Header,
 	chars:        []Char,
-	pixels:       [][1]u8,
 	texture_info: TextureInfo,
 }
 Atlases :: [AtlasSize]Atlas
@@ -51,11 +50,11 @@ init :: proc(atlases: ^Atlases) -> (ok: bool) {
 		chars: [dynamic]Char
 		pixels: [dynamic][1]u8
 		header, chars, pixels = decode(atlas_data, 1) or_return
+		defer delete(pixels)
 		a.w = header.w
 		a.h = header.h
 		a.header = header
 		a.chars = chars[:]
-		a.pixels = pixels[:]
 		a.texture_info.id = load_texture(a.w, a.h, pixels[:])
 		a.texture_info.unit = gl.TEXTURE0
 	}
