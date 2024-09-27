@@ -97,7 +97,6 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: i32) {
 
 		// wrap to new line if needed
 		spacing := f32(w.atlas.h / 10)
-		// spacing = 10
 		if w.wrap {
 			next_w: f32 = f32(ch.w) + spacing
 			line_gap: f32 = f32(w.atlas.h) / 2
@@ -124,7 +123,6 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: i32) {
 		tex_data[i + 1] = {tx, ty}
 		tex_data[i + 2] = {tx2, ty}
 		tex_data[i + 3] = {tx2, ty2}
-		fmt.printf("ch: %v, w:%d, x: %d, %.4f->%.4f\n", rune(char), ch.w, ch.x, tx, tx2)
 
 		ii := ch_index
 		indices_data[ii][0] = u16(i) + 0

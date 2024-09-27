@@ -9,32 +9,6 @@ import "vendor:wasm/js"
 
 main :: proc() {}
 
-vert_tri_source := #load("tri.vert", string)
-frag_tri_source := #load("tri.frag", string)
-
-TriProgramInfo :: struct {
-	program:           gl.Program,
-	attrib_locations:  TriAttribLocations,
-	uniform_locations: TriUniformLocations,
-}
-TriAttribLocations :: struct {
-	pos:   i32,
-	color: i32,
-}
-TriUniformLocations :: struct {
-	projection: i32,
-}
-TriBuffers :: struct {
-	pos:     gl.Buffer,
-	color:   gl.Buffer,
-	indices: gl.Buffer,
-}
-TriState :: struct {
-	program_info: TriProgramInfo,
-	buffers:      TriBuffers,
-	texture:      gl.Texture,
-}
-
 WriterSet :: struct {
 	w:        i32,
 	h:        i32,
@@ -111,7 +85,6 @@ State :: struct {
 	writer_20_set: WriterSet,
 	writer_30_set: WriterSet,
 	writer_40_set: WriterSet,
-	tri:           TriState,
 	shader:        TextShader,
 }
 g_state: State = {}
@@ -157,66 +130,6 @@ start :: proc() -> (ok: bool) {
 
 	text_shader_init(&g_state.shader)
 
-	// Tri shader and buffers
-	{
-
-		program: gl.Program
-		program, ok = gl.CreateProgramFromStrings({vert_tri_source}, {frag_tri_source})
-		if !ok {
-			fmt.eprintln("Failed to create program")
-			return
-		}
-		// buffers
-		buffers: TriBuffers
-		{
-			// position
-			buffer := gl.CreateBuffer()
-			gl.BindBuffer(gl.ARRAY_BUFFER, buffer)
-			// just render a square for now
-			x: f32 = 5
-			y: f32 = 5
-			w: f32 = f32(canvas_w) - 10
-			h: f32 = f32(canvas_h) - 10
-			pos_data: [4][2]f32
-			pos_data[0] = {x, y + h}
-			pos_data[1] = {x, y}
-			pos_data[2] = {x + w, y}
-			pos_data[3] = {x + w, y + h}
-			gl.BufferDataSlice(gl.ARRAY_BUFFER, pos_data[:], gl.STATIC_DRAW)
-			buffers.pos = buffer
-		}
-		{
-			// color
-			buffer := gl.CreateBuffer()
-			gl.BindBuffer(gl.ARRAY_BUFFER, buffer)
-			w: [3]f32 = {1, 1, 1}
-			r: [3]f32 = {0.5, 0, 0}
-			g: [3]f32 = {0, 1, 0}
-			b: [3]f32 = {0, 0, 0.5}
-			black: [3]f32 = {0.2, 0.2, 0.2}
-			data: [4][3]f32 = {black, black, black, black}
-			gl.BufferDataSlice(gl.ARRAY_BUFFER, data[:], gl.STATIC_DRAW)
-			buffers.color = buffer
-		}
-		{
-			// indices
-			buffer := gl.CreateBuffer()
-			gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer)
-			data: [6]u16 = {0, 1, 2, 0, 2, 3}
-			gl.BufferDataSlice(gl.ELEMENT_ARRAY_BUFFER, data[:], gl.STATIC_DRAW)
-			buffers.indices = buffer
-		}
-		g_state.tri.program_info = {
-			program = program,
-			attrib_locations = {
-				pos = gl.GetAttribLocation(program, "aPos"),
-				color = gl.GetAttribLocation(program, "aColor"),
-			},
-			uniform_locations = {projection = gl.GetUniformLocation(program, "uProjection")},
-		}
-		g_state.tri.buffers = buffers
-	}
-
 	ok = check_gl_error()
 	return
 }
@@ -226,7 +139,7 @@ draw :: proc(dt: f32) -> (ok: bool) {
 	canvas_w: i32 = gl.DrawingBufferWidth()
 	canvas_h: i32 = gl.DrawingBufferHeight()
 
-	gl.ClearColor(0, 0, 0, 1)
+	gl.ClearColor(0.2, 0.2, 0.2, 1)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	gl.ClearDepth(1)
 	gl.Enable(gl.DEPTH_TEST)
@@ -235,37 +148,7 @@ draw :: proc(dt: f32) -> (ok: bool) {
 
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-
-
-	// draw tris
 	projection_mat := glm.mat4Ortho3d(0, f32(canvas_w), f32(canvas_h), 0, -1, 1)
-	{
-		buffers := g_state.tri.buffers
-		program_info := g_state.tri.program_info
-		attrib_locations := program_info.attrib_locations
-		{
-			gl.BindBuffer(gl.ARRAY_BUFFER, buffers.pos)
-			gl.VertexAttribPointer(attrib_locations.pos, 2, gl.FLOAT, false, 0, 0)
-			gl.EnableVertexAttribArray(attrib_locations.pos)
-		}
-		{
-			gl.BindBuffer(gl.ARRAY_BUFFER, buffers.color)
-			gl.VertexAttribPointer(attrib_locations.color, 3, gl.FLOAT, false, 0, 0)
-			gl.EnableVertexAttribArray(attrib_locations.color)
-		}
-		gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices)
-		gl.UseProgram(program_info.program)
-		// set uniforms
-		uniform_locations := program_info.uniform_locations
-
-		gl.UniformMatrix4fv(uniform_locations.projection, projection_mat)
-		{
-			vertex_count := 6
-			type := gl.UNSIGNED_SHORT
-			offset: rawptr
-			gl.DrawElements(gl.TRIANGLES, vertex_count, type, offset)
-		}
-	}
 	{
 		uniforms: TextUniforms = {
 			projection = projection_mat,
