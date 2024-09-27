@@ -44,7 +44,7 @@ WriterSet :: struct {
 }
 init_writer_set :: proc(
 	ws: ^WriterSet,
-	size: i32,
+	size: text.AtlasSize,
 	canvas_w: i32,
 	pos: [2]i32,
 ) -> (
@@ -52,7 +52,7 @@ init_writer_set :: proc(
 	ok: bool,
 ) {
 	text.writer_init(&ws.writer_1, size, pos.x, pos.y, LINE1, false, canvas_w, false) or_return
-	line_offset := i32(f32(ws.writer_1.header.h) * 1.2)
+	line_offset := i32(f32(ws.writer_1.atlas.h) * 1.2)
 	text.writer_init(
 		&ws.writer_2,
 		size,
@@ -75,14 +75,36 @@ init_writer_set :: proc(
 	) or_return
 	return pos.y + line_offset * 3, true
 }
-draw_writer_set :: proc(ws: ^WriterSet, w, h: i32, color: glm.vec3) {
-	text.writer_draw(&ws.writer_1, w, h, color)
-	text.writer_draw(&ws.writer_2, w, h, color)
-	text.writer_draw(&ws.writer_3, w, h, color)
+draw_writer_set :: proc(ws: ^WriterSet, w, h: i32, uniforms: TextUniforms) -> (ok: bool) {
+	text_shader_use(
+		g_state.shader,
+		uniforms,
+		ws.writer_1.buffers.pos,
+		ws.writer_1.buffers.tex,
+		ws.writer_1.atlas.texture_info,
+	) or_return
+	text.writer_draw(&ws.writer_1, w, h) or_return
+	text_shader_use(
+		g_state.shader,
+		uniforms,
+		ws.writer_2.buffers.pos,
+		ws.writer_2.buffers.tex,
+		ws.writer_2.atlas.texture_info,
+	) or_return
+	text.writer_draw(&ws.writer_2, w, h) or_return
+	text_shader_use(
+		g_state.shader,
+		uniforms,
+		ws.writer_3.buffers.pos,
+		ws.writer_3.buffers.tex,
+		ws.writer_3.atlas.texture_info,
+	) or_return
+	text.writer_draw(&ws.writer_3, w, h) or_return
+	return true
 }
 
 LINE1 :: "!\"#$%&'()*+,-./0123456789:;<=>?@"
-LINE2 :: "ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
+LINE2 :: "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
 LINE3 :: "abcdefghijklmnopqrstuvwxyz{|}~"
 State :: struct {
 	started:       bool,
@@ -90,6 +112,7 @@ State :: struct {
 	writer_30_set: WriterSet,
 	writer_40_set: WriterSet,
 	tri:           TriState,
+	shader:        TextShader,
 }
 g_state: State = {}
 
@@ -122,12 +145,17 @@ start :: proc() -> (ok: bool) {
 
 	{
 		y: i32 = 20
-		y = init_writer_set(&g_state.writer_20_set, 20, canvas_w, {20, y}) or_return
-		y = init_writer_set(&g_state.writer_30_set, 30, canvas_w, {20, y + 40}) or_return
-		y = init_writer_set(&g_state.writer_40_set, 40, canvas_w, {20, y + 40}) or_return
+		y, ok = init_writer_set(&g_state.writer_20_set, .A20, canvas_w, {20, y})
+		if !ok {
+			fmt.println("error")
+			return ok
+		}
+		y = init_writer_set(&g_state.writer_30_set, .A30, canvas_w, {20, y + 40}) or_return
+		y = init_writer_set(&g_state.writer_40_set, .A40, canvas_w, {20, y + 40}) or_return
 	}
-
 	// js.add_window_event_listener(.Key_Down, {}, on_key_down)
+
+	text_shader_init(&g_state.shader)
 
 	// Tri shader and buffers
 	{
@@ -193,7 +221,7 @@ start :: proc() -> (ok: bool) {
 	return
 }
 
-draw :: proc(dt: f32) {
+draw :: proc(dt: f32) -> (ok: bool) {
 
 	canvas_w: i32 = gl.DrawingBufferWidth()
 	canvas_h: i32 = gl.DrawingBufferHeight()
@@ -205,7 +233,12 @@ draw :: proc(dt: f32) {
 	gl.DepthFunc(gl.LEQUAL)
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
+	gl.Enable(gl.BLEND)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
+
 	// draw tris
+	projection_mat := glm.mat4Ortho3d(0, f32(canvas_w), f32(canvas_h), 0, -1, 1)
 	{
 		buffers := g_state.tri.buffers
 		program_info := g_state.tri.program_info
@@ -224,7 +257,6 @@ draw :: proc(dt: f32) {
 		gl.UseProgram(program_info.program)
 		// set uniforms
 		uniform_locations := program_info.uniform_locations
-		projection_mat := glm.mat4Ortho3d(0, f32(canvas_w), f32(canvas_h), 0, -1, 1)
 
 		gl.UniformMatrix4fv(uniform_locations.projection, projection_mat)
 		{
@@ -234,10 +266,16 @@ draw :: proc(dt: f32) {
 			gl.DrawElements(gl.TRIANGLES, vertex_count, type, offset)
 		}
 	}
-	color: glm.vec3 = {1, 1, 1}
-	draw_writer_set(&g_state.writer_20_set, canvas_w, canvas_h, color)
-	draw_writer_set(&g_state.writer_30_set, canvas_w, canvas_h, color)
-	draw_writer_set(&g_state.writer_40_set, canvas_w, canvas_h, color)
+	{
+		uniforms: TextUniforms = {
+			projection = projection_mat,
+			color      = {1, 1, 1},
+		}
+		draw_writer_set(&g_state.writer_20_set, canvas_w, canvas_h, uniforms) or_return
+		draw_writer_set(&g_state.writer_30_set, canvas_w, canvas_h, uniforms) or_return
+		draw_writer_set(&g_state.writer_40_set, canvas_w, canvas_h, uniforms) or_return
+	}
+	return true
 }
 
 @(export)
@@ -250,7 +288,8 @@ step :: proc(dt: f32) -> (keep_going: bool) {
 		if keep_going = start(); !keep_going {return}
 	}
 
-	draw(dt)
+	ok := draw(dt)
+	if (!ok) {return false}
 
 	keep_going = check_gl_error()
 	return
