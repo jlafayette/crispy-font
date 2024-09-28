@@ -40,7 +40,7 @@ writer_init :: proc(
 	ypos: i32,
 	str: string,
 	dyn: bool,
-	canvas_w: i32,
+	canvas_w: f32,
 	wrap: bool,
 ) -> (
 	ok: bool,
@@ -65,12 +65,13 @@ writer_init :: proc(
 	// if w.dyn {
 	// 	js.add_window_event_listener(.Key_Down, {}, on_key_down)
 	// }
+	fmt.println("writer_init", size)
 	return true
 }
 writer_destroy :: proc(w: ^Writer($N)) {
 
 }
-writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: i32) {
+writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: f32) {
 	w.overall_height = 0
 	data_len := w.next_buf_i
 	if data_len < 1 {
@@ -112,8 +113,8 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: i32) {
 			}
 		}
 
-		px := x
-		py := y
+		px := math.round(x)
+		py := math.round(y)
 		pos_data[i + 0] = {px, py + char_h}
 		pos_data[i + 1] = {px, py}
 		pos_data[i + 2] = {px + f32(ch.w), py}
@@ -180,7 +181,7 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: i32) {
 	}
 	w.buffered = true
 }
-writer_draw :: proc(w: ^Writer($N), canvas_w: i32, canvas_h: i32) -> (ok: bool) {
+writer_draw :: proc(w: ^Writer($N), canvas_w: f32, canvas_h: f32) -> (ok: bool) {
 	if !w.buffered {
 		writer_update_buffer_data(w, canvas_w)
 	}

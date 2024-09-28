@@ -1,6 +1,6 @@
 package t
 
-import text "../../shared/text2"
+import text "../shared/text"
 import "core:bytes"
 import "core:fmt"
 import "core:image"
@@ -110,7 +110,7 @@ _main :: proc(png_file: string, grid_w: int, grid_h: int) -> (ok: bool) {
 	{
 		h := grid_h
 		w: int
-		spacing := 2
+		spacing := 1
 		for ch in chars {
 			w += ch.w + spacing
 		}
@@ -139,7 +139,7 @@ _main :: proc(png_file: string, grid_w: int, grid_h: int) -> (ok: bool) {
 			fmt.println("ERROR: converting to debug Image")
 			return false
 		}
-		err := bmp.save_to_file(fmt.tprintf("assets/smallest_atlas/debug-%d.bmp", grid_h), &img2)
+		err := bmp.save_to_file(fmt.tprintf("assets/debug/debug-%d.bmp", grid_h), &img2)
 		if err != nil {
 			fmt.println("ERROR: saving bmp:", err)
 			return false
@@ -151,7 +151,7 @@ _main :: proc(png_file: string, grid_w: int, grid_h: int) -> (ok: bool) {
 	{
 		h := grid_h
 		w: int
-		spacing := 0
+		spacing := 1
 		for ch in chars {
 			w += ch.w + spacing
 		}
@@ -198,10 +198,7 @@ _main :: proc(png_file: string, grid_w: int, grid_h: int) -> (ok: bool) {
 			img, ok = image.pixels_to_image(pixels[:], int(header.w), int(header.h))
 			fmt.println("pixels_to_image:", ok)
 			if !ok {return false}
-			err := bmp.save_to_file(
-				fmt.tprintf("assets/smallest_atlas/debug-%d-decode.bmp", grid_h),
-				&img,
-			)
+			err := bmp.save_to_file(fmt.tprintf("assets/debug/debug-%d-decode.bmp", grid_h), &img)
 			if err != nil {
 				fmt.println("error saving decoded img to bmp:", err)
 				return false
@@ -210,7 +207,7 @@ _main :: proc(png_file: string, grid_w: int, grid_h: int) -> (ok: bool) {
 
 		// write encoded data to file
 		err := os.write_entire_file_or_err(
-			fmt.tprintf("assets/smallest_atlas/data-%d.jatlas", grid_h),
+			fmt.tprintf("assets/data/data-%d.jatlas", grid_h),
 			buffer.buf[:written],
 		)
 		if err != nil {
@@ -226,12 +223,11 @@ _main :: proc(png_file: string, grid_w: int, grid_h: int) -> (ok: bool) {
 main :: proc() {
 	// do arg handling here
 
-	// assets\smallest_atlas\Sprite-20.png	
-	ok := _main("assets/smallest_atlas/Sprite-20_2.png", 12, 20)
+	ok := _main("assets/exports/Sprite-20_2.png", 12, 20)
 	fmt.println("ok:", ok)
-	ok = _main("assets/smallest_atlas/Sprite-30.png", 18, 30)
+	ok = _main("assets/exports/Sprite-30.png", 18, 30)
 	fmt.println("ok:", ok)
-	ok = _main("assets/smallest_atlas/Sprite-40.png", 24, 40)
+	ok = _main("assets/exports/Sprite-40.png", 24, 40)
 	fmt.println("ok:", ok)
 }
 

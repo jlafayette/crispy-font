@@ -1,6 +1,7 @@
 package game
 
 import "../shared/text"
+import "../shared/utils"
 import "core:fmt"
 import glm "core:math/linalg/glsl"
 import "core:mem"
@@ -15,11 +16,17 @@ LINE3 :: "abcdefghijklmnopqrstuvwxyz{|}~"
 ALL_CHARS :: "!\"#$%&'()*+,-./0123456789:;<=>?@\nABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`\nabcdefghijklmnopqrstuvwxyz{|}~"
 
 State :: struct {
-	started:   bool,
-	writer_20: text.Writer(len(ALL_CHARS)),
-	writer_30: text.Writer(len(ALL_CHARS)),
-	writer_40: text.Writer(len(ALL_CHARS)),
-	shader:    TextShader,
+	started:      bool,
+	writer_20:    text.Writer(len(ALL_CHARS)),
+	writer_30:    text.Writer(len(ALL_CHARS)),
+	writer_40:    text.Writer(len(ALL_CHARS)),
+	shader:       TextShader,
+	canvas_res:   [2]i32,
+	canvas_pos:   [2]f32,
+	canvas_size:  [2]f32,
+	window_size:  [2]f32,
+	dpr:          f32,
+	aspect_ratio: f32,
 }
 g_state: State = {}
 
@@ -47,8 +54,13 @@ start :: proc() -> (ok: bool) {
 		fmt.println("es version:", es_major, es_minor)
 	}
 
-	canvas_w: i32 = gl.DrawingBufferWidth()
-	canvas_h: i32 = gl.DrawingBufferHeight()
+	on_resize({})
+	// canvas_w: i32 = gl.DrawingBufferWidth()
+	// canvas_h: i32 = gl.DrawingBufferHeight()
+	// g_state.canvas_w = canvas_w
+	// g_state.canvas_h = canvas_h
+	canvas_w := g_state.canvas_size.x
+	canvas_h := g_state.canvas_size.y
 
 	{
 		y: i32 = 20
@@ -85,18 +97,31 @@ start :: proc() -> (ok: bool) {
 			false,
 		) or_return
 	}
-	// js.add_window_event_listener(.Key_Down, {}, on_key_down)
 
 	text_shader_init(&g_state.shader)
+
+	fmt.println("adding event listeners")
+	js.add_window_event_listener(.Key_Down, {}, on_key_down)
+	js.add_window_event_listener(.Resize, {}, on_resize)
 
 	ok = check_gl_error()
 	return
 }
 
-draw :: proc(dt: f32) -> (ok: bool) {
+update :: proc(state: ^State, dt: f32) {
+	// state.canvas_w = gl.DrawingBufferWidth()
+	// state.canvas_h = gl.DrawingBufferHeight()
+}
 
-	canvas_w: i32 = gl.DrawingBufferWidth()
-	canvas_h: i32 = gl.DrawingBufferHeight()
+draw :: proc(dt: f32) -> (ok: bool) {
+	on_resize({})
+	canvas_w := g_state.canvas_size.x
+	canvas_h := g_state.canvas_size.y
+	// fmt.printf("canvas: %.2fx%.2f\n", canvas_w, canvas_h)
+
+	// gl.Viewport(0, 0, i32(g_state.canvas_size.x), i32(g_state.canvas_size.y))
+	gl.Viewport(0, 0, g_state.canvas_res.x, g_state.canvas_res.y)
+	fmt.printf("viewport: 0,0,%dx%d\n", g_state.canvas_res.x, g_state.canvas_res.y)
 
 	gl.ClearColor(0.2, 0.2, 0.2, 1)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
@@ -107,7 +132,16 @@ draw :: proc(dt: f32) -> (ok: bool) {
 
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-	projection_mat := glm.mat4Ortho3d(0, f32(canvas_w), f32(canvas_h), 0, -1, 1)
+	// projection_mat := glm.mat4Ortho3d(0, g_state.canvas_size.x, g_state.canvas_size.y, 0, -1, 1)
+	projection_mat := glm.mat4Ortho3d(
+		0,
+		f32(g_state.canvas_res.x),
+		f32(g_state.canvas_res.y),
+		0,
+		-1,
+		1,
+	)
+	// fmt.println(projection_mat)
 	{
 		uniforms: TextUniforms = {
 			projection = projection_mat,
@@ -160,6 +194,8 @@ step :: proc(dt: f32) -> (keep_going: bool) {
 		if keep_going = start(); !keep_going {return}
 	}
 
+	update(&g_state, dt)
+
 	ok := draw(dt)
 	if (!ok) {return false}
 
@@ -170,6 +206,7 @@ step :: proc(dt: f32) -> (keep_going: bool) {
 // --- input
 
 on_key_down :: proc(e: js.Event) {
+	// fmt.println("on_key_down:", e)
 	// w := &g_state.writer3
 	// if !w.dyn {
 	// 	return
@@ -188,12 +225,5 @@ on_key_down :: proc(e: js.Event) {
 
 // --- utils
 
-check_gl_error :: proc() -> (ok: bool) {
-	err := gl.GetError()
-	if err != gl.NO_ERROR {
-		fmt.eprintln("WebGL error:", err)
-		return false
-	}
-	return true
-}
+check_gl_error :: utils.check_gl_error
 
