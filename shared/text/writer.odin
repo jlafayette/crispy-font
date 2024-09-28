@@ -21,16 +21,17 @@ ea_buffer_init :: utils.ea_buffer_init
 ea_buffer_draw :: utils.ea_buffer_draw
 
 Writer :: struct(N: uint) {
-	buf:        [N]u8,
-	next_buf_i: int,
-	str:        string,
-	xpos:       i32,
-	ypos:       i32,
-	atlas:      ^Atlas,
-	dyn:        bool,
-	buffered:   bool,
-	wrap:       bool,
-	buffers:    Buffers,
+	buf:            [N]u8,
+	next_buf_i:     int,
+	str:            string,
+	xpos:           i32,
+	ypos:           i32,
+	atlas:          ^Atlas,
+	dyn:            bool,
+	buffered:       bool,
+	wrap:           bool,
+	buffers:        Buffers,
+	overall_height: i32,
 }
 writer_init :: proc(
 	w: ^Writer($N),
@@ -70,6 +71,7 @@ writer_destroy :: proc(w: ^Writer($N)) {
 
 }
 writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: i32) {
+	w.overall_height = 0
 	data_len := w.next_buf_i
 	if data_len < 1 {
 		return
@@ -85,14 +87,20 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: i32) {
 		i := ch_index * 4
 		char := w.buf[ch_index]
 		char_i := i32(char) - 33
+		// fmt.printf("ch_index: %d, i: %d, char:%v, char_i:%d\n", ch_index, i, char, char_i)
 		if char_i < 0 || int(char_i) > len(w.atlas.chars) {
-			// fmt.printf("out of range '%v'(%d)\n", rune(char), i32(char))
-			// render space...
-			x += 8
+			if rune(char) == ' ' {
+				x += f32(w.atlas.h) * 0.5
+			} else if rune(char) == '\n' {
+				line_gap: i32 = w.atlas.h / 3
+				x = f32(w.xpos)
+				y += f32(w.atlas.h) + f32(line_gap)
+			} else {
+				fmt.printf("out of range '%v'(%d)\n", rune(char), i32(char))
+			}
 			continue
 		}
 		ch: Char = w.atlas.chars[char_i]
-
 		// wrap to new line if needed
 		spacing := f32(w.atlas.h / 10)
 		if w.wrap {
@@ -100,7 +108,7 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: i32) {
 			line_gap: f32 = f32(w.atlas.h) / 2
 			if x + next_w >= f32(canvas_w) {
 				x = f32(w.xpos)
-				y += f32(w.atlas.h)
+				y += f32(w.atlas.h) + line_gap
 			}
 		}
 
@@ -130,6 +138,7 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: i32) {
 		indices_data[ii][4] = u16(i) + 2
 		indices_data[ii][5] = u16(i) + 3
 	}
+	w.overall_height = i32(y + f32(w.atlas.h - w.ypos))
 	if w.buffers._initialized {
 		{
 			buffer: utils.Buffer = w.buffers.pos

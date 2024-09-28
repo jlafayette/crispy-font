@@ -9,83 +9,17 @@ import "vendor:wasm/js"
 
 main :: proc() {}
 
-WriterSet :: struct {
-	w:        i32,
-	h:        i32,
-	writer_1: text.Writer(len(LINE1)),
-	writer_2: text.Writer(len(LINE2)),
-	writer_3: text.Writer(len(LINE3)),
-}
-init_writer_set :: proc(
-	ws: ^WriterSet,
-	size: text.AtlasSize,
-	canvas_w: i32,
-	pos: [2]i32,
-) -> (
-	y_pos: i32,
-	ok: bool,
-) {
-	text.writer_init(&ws.writer_1, size, pos.x, pos.y, LINE1, false, canvas_w, false) or_return
-	line_offset := i32(f32(ws.writer_1.atlas.h) * 1.2)
-	text.writer_init(
-		&ws.writer_2,
-		size,
-		pos.x,
-		pos.y + line_offset,
-		LINE2,
-		false,
-		canvas_w,
-		false,
-	) or_return
-	text.writer_init(
-		&ws.writer_3,
-		size,
-		pos.x,
-		pos.y + line_offset * 2,
-		LINE3,
-		false,
-		canvas_w,
-		false,
-	) or_return
-	return pos.y + line_offset * 3, true
-}
-draw_writer_set :: proc(ws: ^WriterSet, w, h: i32, uniforms: TextUniforms) -> (ok: bool) {
-	text_shader_use(
-		g_state.shader,
-		uniforms,
-		ws.writer_1.buffers.pos,
-		ws.writer_1.buffers.tex,
-		ws.writer_1.atlas.texture_info,
-	) or_return
-	text.writer_draw(&ws.writer_1, w, h) or_return
-	text_shader_use(
-		g_state.shader,
-		uniforms,
-		ws.writer_2.buffers.pos,
-		ws.writer_2.buffers.tex,
-		ws.writer_2.atlas.texture_info,
-	) or_return
-	text.writer_draw(&ws.writer_2, w, h) or_return
-	text_shader_use(
-		g_state.shader,
-		uniforms,
-		ws.writer_3.buffers.pos,
-		ws.writer_3.buffers.tex,
-		ws.writer_3.atlas.texture_info,
-	) or_return
-	text.writer_draw(&ws.writer_3, w, h) or_return
-	return true
-}
-
 LINE1 :: "!\"#$%&'()*+,-./0123456789:;<=>?@"
-LINE2 :: "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
+LINE2 :: "ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
 LINE3 :: "abcdefghijklmnopqrstuvwxyz{|}~"
+ALL_CHARS :: "!\"#$%&'()*+,-./0123456789:;<=>?@\nABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`\nabcdefghijklmnopqrstuvwxyz{|}~"
+
 State :: struct {
-	started:       bool,
-	writer_20_set: WriterSet,
-	writer_30_set: WriterSet,
-	writer_40_set: WriterSet,
-	shader:        TextShader,
+	started:   bool,
+	writer_20: text.Writer(len(ALL_CHARS)),
+	writer_30: text.Writer(len(ALL_CHARS)),
+	writer_40: text.Writer(len(ALL_CHARS)),
+	shader:    TextShader,
 }
 g_state: State = {}
 
@@ -118,13 +52,38 @@ start :: proc() -> (ok: bool) {
 
 	{
 		y: i32 = 20
-		y, ok = init_writer_set(&g_state.writer_20_set, .A20, canvas_w, {20, y})
-		if !ok {
-			fmt.println("error")
-			return ok
-		}
-		y = init_writer_set(&g_state.writer_30_set, .A30, canvas_w, {20, y + 40}) or_return
-		y = init_writer_set(&g_state.writer_40_set, .A40, canvas_w, {20, y + 40}) or_return
+		text.writer_init(
+			&g_state.writer_20,
+			.A20,
+			20,
+			y,
+			ALL_CHARS,
+			false,
+			canvas_w,
+			false,
+		) or_return
+		y += g_state.writer_20.overall_height + 30
+		text.writer_init(
+			&g_state.writer_30,
+			.A30,
+			20,
+			y,
+			ALL_CHARS,
+			false,
+			canvas_w,
+			false,
+		) or_return
+		y += g_state.writer_30.overall_height + 40
+		text.writer_init(
+			&g_state.writer_40,
+			.A40,
+			20,
+			y,
+			ALL_CHARS,
+			false,
+			canvas_w,
+			false,
+		) or_return
 	}
 	// js.add_window_event_listener(.Key_Down, {}, on_key_down)
 
@@ -154,9 +113,39 @@ draw :: proc(dt: f32) -> (ok: bool) {
 			projection = projection_mat,
 			color      = {1, 1, 1},
 		}
-		draw_writer_set(&g_state.writer_20_set, canvas_w, canvas_h, uniforms) or_return
-		draw_writer_set(&g_state.writer_30_set, canvas_w, canvas_h, uniforms) or_return
-		draw_writer_set(&g_state.writer_40_set, canvas_w, canvas_h, uniforms) or_return
+		{
+			writer := g_state.writer_20
+			text_shader_use(
+				g_state.shader,
+				uniforms,
+				writer.buffers.pos,
+				writer.buffers.tex,
+				writer.atlas.texture_info,
+			) or_return
+			text.writer_draw(&writer, canvas_w, canvas_h) or_return
+		}
+		{
+			writer := g_state.writer_30
+			text_shader_use(
+				g_state.shader,
+				uniforms,
+				writer.buffers.pos,
+				writer.buffers.tex,
+				writer.atlas.texture_info,
+			) or_return
+			text.writer_draw(&writer, canvas_w, canvas_h) or_return
+		}
+		{
+			writer := g_state.writer_40
+			text_shader_use(
+				g_state.shader,
+				uniforms,
+				writer.buffers.pos,
+				writer.buffers.tex,
+				writer.atlas.texture_info,
+			) or_return
+			text.writer_draw(&writer, canvas_w, canvas_h) or_return
+		}
 	}
 	return true
 }
