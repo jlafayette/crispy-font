@@ -20,11 +20,11 @@ def main(args: Args):
 		print(f"No public folder found for project: {project_dst}")
 		sys.exit(1)
 	
-	server_dst = public_dst / "main.exe"
+	server_dst = public_dst / "server.exe"
 	if args.go or not server_dst.exists():
 		print("building server...")
 		clean(server_dst)
-		subprocess.run(["go", "build", "-o", server_dst, "main.go"])
+		subprocess.run(["go", "build", "-o", server_dst, "server.go"])
 	
 	wasm_dst = public_dst / "_main.wasm"
 	if args.odin or not wasm_dst.exists():
