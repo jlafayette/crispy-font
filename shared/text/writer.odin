@@ -19,9 +19,10 @@ EaBuffer :: utils.EaBuffer
 buffer_init :: utils.buffer_init
 ea_buffer_init :: utils.ea_buffer_init
 ea_buffer_draw :: utils.ea_buffer_draw
+check_gl_error :: utils.check_gl_error
 
-Writer :: struct(N: uint) {
-	buf:            [N]u8,
+Writer :: struct {
+	buf:            []u8,
 	next_buf_i:     int,
 	str:            string,
 	xpos:           i32,
@@ -37,7 +38,8 @@ Writer :: struct(N: uint) {
 }
 
 writer_init :: proc(
-	w: ^Writer($N),
+	w: ^Writer,
+	buf_size: uint,
 	target_size: i32,
 	xpos: i32,
 	ypos: i32,
@@ -50,6 +52,7 @@ writer_init :: proc(
 ) {
 	// w.str = "Hello WOdinlingssss!"
 	init(&g_atlases)
+	w.buf = make([]u8, buf_size)
 	writer_set_size(w, target_size)
 	w.dyn = dyn
 	w.wrap = wrap
@@ -61,18 +64,18 @@ writer_init :: proc(
 
 	return true
 }
-writer_destroy :: proc(w: ^Writer($N)) {
-
+writer_destroy :: proc(w: ^Writer) {
+	delete(w.buf)
 }
 
-writer_set_size :: proc(w: ^Writer($N), target: i32) {
+writer_set_size :: proc(w: ^Writer, target: i32) {
 	atlas_size, multiplier, px := get_closest_size(target)
 	w.atlas = &g_atlases[atlas_size]
 	w.size = atlas_size
 	w.multiplier = multiplier
 	w.buffered = false
 }
-writer_get_size :: proc(w: ^Writer($N), canvas_w: i32) -> [2]i32 {
+writer_get_size :: proc(w: ^Writer, canvas_w: i32) -> [2]i32 {
 	x: i32 = 0
 	y: i32 = 0
 	char_h := w.atlas.h * i32(w.multiplier)
@@ -108,10 +111,10 @@ writer_get_size :: proc(w: ^Writer($N), canvas_w: i32) -> [2]i32 {
 	return {x, y + char_h}
 }
 
-writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: i32) {
+writer_update_buffer_data :: proc(w: ^Writer, canvas_w: i32) {
 
 	w.overall_height = 0
-	data_len := N
+	data_len := len(w.buf)
 	if data_len < 1 {
 		return
 	}
@@ -220,26 +223,26 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: i32) {
 	}
 	w.buffered = true
 }
-writer_draw :: proc(w: ^Writer($N), canvas_w: i32) -> (ok: bool) {
+writer_draw :: proc(w: ^Writer, canvas_w: i32) -> (ok: bool) {
 	if !w.buffered {
 		writer_update_buffer_data(w, canvas_w)
 	}
 	ea_buffer_draw(w.buffers.indices)
 	return check_gl_error()
 }
-writer_set_text :: proc(w: ^Writer($N), str: string) {
+writer_set_text :: proc(w: ^Writer, str: string) {
 	w.str = str
 	w.next_buf_i = 0
 	for i := 0; i < len(w.str); i += 1 {
 		writer_add_char(w, w.str[i])
 	}
 }
-writer_set_pos :: proc(w: ^Writer($N), pos: [2]i32) {
+writer_set_pos :: proc(w: ^Writer, pos: [2]i32) {
 	w.xpos = pos.x
 	w.ypos = pos.y
 	w.buffered = false
 }
-writer_add_char :: proc(w: ^Writer($N), char: u8) {
+writer_add_char :: proc(w: ^Writer, char: u8) {
 	if w.next_buf_i >= len(w.buf) {
 		return
 	}
@@ -247,13 +250,11 @@ writer_add_char :: proc(w: ^Writer($N), char: u8) {
 	w.next_buf_i += 1
 	w.buffered = false
 }
-writer_backspace :: proc(w: ^Writer($N)) {
+writer_backspace :: proc(w: ^Writer) {
 	if w.next_buf_i == 0 {
 		return
 	}
 	w.next_buf_i -= 1
 	w.buffered = false
 }
-
-check_gl_error :: utils.check_gl_error
 

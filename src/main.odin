@@ -16,11 +16,11 @@ ALL_CHARS :: "!\"#$%&'()*+,-./0123456789:;<=>?@\nABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^
 
 State :: struct {
 	started:      bool,
-	writer_var:   text.Writer(len(ALL_CHARS)),
-	writer_debug: text.Writer(64),
-	writer_dpr:   text.Writer(9),
-	writer_size:  text.Writer(32),
-	writer_res:   text.Writer(32),
+	writer_var:   text.Writer,
+	writer_debug: text.Writer,
+	writer_dpr:   text.Writer,
+	writer_size:  text.Writer,
+	writer_res:   text.Writer,
 	shader:       TextShader,
 	canvas_res:   [2]i32,
 	canvas_pos:   [2]i32,
@@ -63,6 +63,7 @@ start :: proc() -> (ok: bool) {
 			y: i32 = 50
 			text.writer_init(
 				&g_state.writer_var,
+				len(ALL_CHARS),
 				20,
 				20,
 				y,
@@ -76,7 +77,7 @@ start :: proc() -> (ok: bool) {
 			// x = canvas_w - str_width
 			// y = 0
 			writer := &g_state.writer_debug
-			text.writer_init(writer, 20, 5, 5, "", false, canvas_w, false) or_return
+			text.writer_init(writer, 64, 20, 5, 5, "", false, canvas_w, false) or_return
 		}
 		{
 			// x = canvas_w - str_width
@@ -84,7 +85,7 @@ start :: proc() -> (ok: bool) {
 			writer := &g_state.writer_dpr
 			str := "DPR: 0.00"
 			size := text.get_size(str, .A20)
-			text.writer_init(writer, 20, 5, 5, str, false, canvas_w, false) or_return
+			text.writer_init(writer, 9, 20, 5, 5, str, false, canvas_w, false) or_return
 		}
 		{
 			writer := &g_state.writer_size
@@ -92,6 +93,7 @@ start :: proc() -> (ok: bool) {
 			size := text.get_size(str, .A20)
 			text.writer_init(
 				writer,
+				32,
 				20,
 				canvas_w - size.x - 5,
 				5 + 20,
@@ -107,6 +109,7 @@ start :: proc() -> (ok: bool) {
 			size := text.get_size(str, .A20)
 			text.writer_init(
 				writer,
+				32,
 				20,
 				canvas_w - size.x - 5,
 				canvas_h - size.y - 5,
@@ -218,19 +221,13 @@ draw :: proc(dt: f32) -> (ok: bool) {
 			text.writer_draw(&writer, canvas_w) or_return
 		}
 		uniforms.color = {1, 1, 1}
-		{
-			writer := g_state.writer_debug
-			text_shader_use(
-				g_state.shader,
-				uniforms,
-				writer.buffers.pos,
-				writer.buffers.tex,
-				writer.atlas.texture_info,
-			) or_return
-			text.writer_draw(&writer, canvas_w) or_return
+		writers: [4]^text.Writer = {
+			&g_state.writer_debug,
+			&g_state.writer_dpr,
+			&g_state.writer_size,
+			&g_state.writer_res,
 		}
-		{
-			writer := g_state.writer_dpr
+		for writer in writers {
 			text_shader_use(
 				g_state.shader,
 				uniforms,
@@ -238,29 +235,7 @@ draw :: proc(dt: f32) -> (ok: bool) {
 				writer.buffers.tex,
 				writer.atlas.texture_info,
 			) or_return
-			text.writer_draw(&writer, canvas_w) or_return
-		}
-		{
-			writer := g_state.writer_size
-			text_shader_use(
-				g_state.shader,
-				uniforms,
-				writer.buffers.pos,
-				writer.buffers.tex,
-				writer.atlas.texture_info,
-			) or_return
-			text.writer_draw(&writer, canvas_w) or_return
-		}
-		{
-			writer := g_state.writer_res
-			text_shader_use(
-				g_state.shader,
-				uniforms,
-				writer.buffers.pos,
-				writer.buffers.tex,
-				writer.atlas.texture_info,
-			) or_return
-			text.writer_draw(&writer, canvas_w) or_return
+			text.writer_draw(writer, canvas_w) or_return
 		}
 	}
 	return true
@@ -273,16 +248,14 @@ step :: proc(dt: f32) -> (keep_going: bool) {
 	defer free_all(context.temp_allocator)
 
 	if !g_state.started {
-		if keep_going = start(); !keep_going {return}
+		start() or_return
 	}
 
 	update(&g_state, dt)
 
-	ok := draw(dt)
-	if (!ok) {return false}
+	draw(dt) or_return
 
-	keep_going = check_gl_error()
-	return
+	return check_gl_error()
 }
 
 // --- input
