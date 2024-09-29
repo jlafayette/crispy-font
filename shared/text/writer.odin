@@ -43,7 +43,7 @@ writer_init :: proc(
 	ypos: i32,
 	str: string,
 	dyn: bool,
-	canvas_w: f32,
+	canvas_w: i32,
 	wrap: bool,
 ) -> (
 	ok: bool,
@@ -72,8 +72,43 @@ writer_set_size :: proc(w: ^Writer($N), target: i32) {
 	w.multiplier = multiplier
 	w.buffered = false
 }
+writer_get_size :: proc(w: ^Writer($N), canvas_w: i32) -> [2]i32 {
+	x: i32 = 0
+	y: i32 = 0
+	char_h := w.atlas.h * i32(w.multiplier)
+	line_gap := char_h / 3
+	for ch_index := 0; ch_index < w.next_buf_i; ch_index += 1 {
+		i := ch_index * 4
+		char := w.buf[ch_index]
+		char_i := i32(char) - 33
+		if char_i < 0 || int(char_i) > len(w.atlas.chars) {
+			if rune(char) == ' ' {
+				x += char_h / 2
+			} else if rune(char) == '\n' {
+				x = 0
+				y += char_h + line_gap
+			} else {
+				fmt.printf("out of range '%v'(%d)\n", rune(char), i32(char))
+			}
+			continue
+		}
+		ch: Char = w.atlas.chars[char_i]
+		// wrap to new line if needed
+		spacing := char_h / 10
+		char_w := i32(ch.w) * i32(w.multiplier)
+		if w.wrap {
+			next_w := char_w + spacing
+			if x + next_w >= canvas_w {
+				x = 0
+				y += char_h + line_gap
+			}
+		}
+		x += char_w + spacing
+	}
+	return {x, y + char_h}
+}
 
-writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: f32) {
+writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: i32) {
 
 	w.overall_height = 0
 	data_len := N
@@ -84,21 +119,22 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: f32) {
 	pos_data := make([][2]f32, data_len * 4, allocator = context.temp_allocator)
 	tex_data := make([][2]f32, data_len * 4, allocator = context.temp_allocator)
 	indices_data := make([][6]u16, data_len, allocator = context.temp_allocator)
-	x: f32 = f32(w.xpos)
-	y: f32 = f32(w.ypos)
-	line_gap := f32(w.atlas.h) / 2
+	x: i32 = w.xpos
+	y: i32 = w.ypos
+	char_h: i32 = w.atlas.h * i32(w.multiplier)
+	line_gap: i32 = char_h / 3
 	for ch_index := 0; ch_index < w.next_buf_i; ch_index += 1 {
 		i := ch_index * 4
 		char := w.buf[ch_index]
 		char_i := i32(char) - 33
 		// fmt.printf("ch_index: %d, i: %d, char:%v, char_i:%d\n", ch_index, i, char, char_i)
+		line_gap: i32 = w.atlas.h / 3
 		if char_i < 0 || int(char_i) > len(w.atlas.chars) {
 			if rune(char) == ' ' {
-				x += f32(w.atlas.h) * 0.5
+				x += char_h / 2
 			} else if rune(char) == '\n' {
-				line_gap: i32 = w.atlas.h / 3
-				x = f32(w.xpos)
-				y += f32(w.atlas.h) + f32(line_gap)
+				x = w.xpos
+				y += char_h + line_gap
 			} else {
 				fmt.printf("out of range '%v'(%d)\n", rune(char), i32(char))
 			}
@@ -106,24 +142,22 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: f32) {
 		}
 		ch: Char = w.atlas.chars[char_i]
 		// wrap to new line if needed
-		spacing := math.round(f32(w.atlas.h / 10) * f32(w.multiplier))
-		char_w := math.round(f32(ch.w) * f32(w.multiplier))
-		char_h := math.round(f32(w.atlas.h) * f32(w.multiplier))
+		spacing := char_h / 10
+		char_w := i32(ch.w) * i32(w.multiplier)
 		if w.wrap {
-			next_w: f32 = char_w + spacing
-			line_gap: f32 = f32(w.atlas.h) / 2
-			if x + next_w >= f32(canvas_w) {
-				x = f32(w.xpos)
+			next_w: i32 = char_w + spacing
+			if x + next_w >= canvas_w {
+				x = w.xpos
 				y += char_h + line_gap
 			}
 		}
 
-		px := math.round(x)
-		py := math.round(y)
-		pos_data[i + 0] = {px, py + char_h}
+		px := f32(x)
+		py := f32(y)
+		pos_data[i + 0] = {px, py + f32(char_h)}
 		pos_data[i + 1] = {px, py}
-		pos_data[i + 2] = {px + char_w, py}
-		pos_data[i + 3] = {px + char_w, py + char_h}
+		pos_data[i + 2] = {px + f32(char_w), py}
+		pos_data[i + 3] = {px + f32(char_w), py + f32(char_h)}
 		x += char_w + spacing
 
 		w_mult := 1.0 / f32(w.atlas.w)
@@ -144,7 +178,7 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: f32) {
 		indices_data[ii][4] = u16(i) + 2
 		indices_data[ii][5] = u16(i) + 3
 	}
-	w.overall_height = i32(y + f32(w.atlas.h - w.ypos))
+	w.overall_height = i32(y + char_h - w.ypos)
 	if w.buffers._initialized {
 		{
 			buffer: utils.Buffer = w.buffers.pos
@@ -186,7 +220,7 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: f32) {
 	}
 	w.buffered = true
 }
-writer_draw :: proc(w: ^Writer($N), canvas_w: f32, canvas_h: f32) -> (ok: bool) {
+writer_draw :: proc(w: ^Writer($N), canvas_w: i32) -> (ok: bool) {
 	if !w.buffered {
 		writer_update_buffer_data(w, canvas_w)
 	}
