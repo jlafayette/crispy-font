@@ -32,6 +32,7 @@ Writer :: struct(N: uint) {
 	wrap:           bool,
 	buffers:        Buffers,
 	overall_height: i32,
+	size:           AtlasSize,
 }
 writer_init :: proc(
 	w: ^Writer($N),
@@ -48,19 +49,15 @@ writer_init :: proc(
 	// w.str = "Hello WOdinlingssss!"
 	init(&g_atlases)
 	w.atlas = &g_atlases[size]
-	w.str = str
+	w.size = size
 	w.dyn = dyn
 	w.wrap = wrap
 	w.xpos = xpos
 	w.ypos = ypos
-
-	for i := 0; i < len(w.str); i += 1 {
-		writer_add_char(w, w.str[i])
-	}
+	writer_set_text(w, str)
 
 	// buffers
 	writer_update_buffer_data(w, canvas_w)
-
 
 	// if w.dyn {
 	// 	js.add_window_event_listener(.Key_Down, {}, on_key_down)
@@ -72,11 +69,13 @@ writer_destroy :: proc(w: ^Writer($N)) {
 
 }
 writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: f32) {
+
 	w.overall_height = 0
-	data_len := w.next_buf_i
+	data_len := N
 	if data_len < 1 {
 		return
 	}
+
 	pos_data := make([][2]f32, data_len * 4, allocator = context.temp_allocator)
 	tex_data := make([][2]f32, data_len * 4, allocator = context.temp_allocator)
 	indices_data := make([][6]u16, data_len, allocator = context.temp_allocator)
@@ -84,7 +83,7 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: f32) {
 	y: f32 = f32(w.ypos)
 	char_h := f32(w.atlas.h)
 	line_gap := f32(w.atlas.h) / 2
-	for ch_index := 0; ch_index < data_len; ch_index += 1 {
+	for ch_index := 0; ch_index < w.next_buf_i; ch_index += 1 {
 		i := ch_index * 4
 		char := w.buf[ch_index]
 		char_i := i32(char) - 33
@@ -187,6 +186,18 @@ writer_draw :: proc(w: ^Writer($N), canvas_w: f32, canvas_h: f32) -> (ok: bool) 
 	}
 	ea_buffer_draw(w.buffers.indices)
 	return check_gl_error()
+}
+writer_set_text :: proc(w: ^Writer($N), str: string) {
+	w.str = str
+	w.next_buf_i = 0
+	for i := 0; i < len(w.str); i += 1 {
+		writer_add_char(w, w.str[i])
+	}
+}
+writer_set_pos :: proc(w: ^Writer($N), pos: [2]i32) {
+	w.xpos = pos.x
+	w.ypos = pos.y
+	w.buffered = false
 }
 writer_add_char :: proc(w: ^Writer($N), char: u8) {
 	if w.next_buf_i >= len(w.buf) {

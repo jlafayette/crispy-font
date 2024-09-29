@@ -79,3 +79,36 @@ is_power_of_two :: proc(n: int) -> bool {
 	return (n & (n - 1)) == 0
 }
 
+
+get_size :: proc(text: string, atlas: AtlasSize) -> [2]i32 {
+	if !g_initialized {
+		return {0, 0}
+	}
+	w: i32 = 0
+	h: i32 = 0
+	atlas := g_atlases[atlas]
+	for rune_, rune_i in text {
+		if rune_ == ' ' {
+			w += atlas.h / 2
+			continue
+		} else if rune_ == '\n' {
+			// TODO: handle newlines
+			continue
+		}
+		ch_i: int = int(rune_) - 33
+		if ch_i < 0 || ch_i >= len(atlas.chars) {
+			fmt.printf("out of range '%v'(%d)\n", rune_, ch_i)
+			continue
+		}
+		ch: Char = atlas.chars[ch_i]
+		spacing: i32 = atlas.h / 10
+
+		w += i32(ch.w)
+		if rune_i < len(text) - 1 {
+			w += spacing
+		}
+	}
+	h += atlas.h
+	return {w, h}
+}
+

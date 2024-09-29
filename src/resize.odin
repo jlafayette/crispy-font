@@ -9,7 +9,7 @@ import "core:math"
 import glm "core:math/linalg/glsl"
 import "vendor:wasm/js"
 
-CanvasSize :: struct {
+SizeInfo :: struct {
 	window_inner_width:  f32,
 	window_inner_height: f32,
 	rect_width:          f32,
@@ -19,14 +19,14 @@ CanvasSize :: struct {
 	dpr:                 f32,
 }
 
-update_canvas_size :: proc() -> CanvasSize {
+update_size_info :: proc() -> SizeInfo {
 	@(default_calling_convention = "contextless")
 	foreign odin_resize {
-		@(link_name = "updateCanvasSize")
-		_updateCanvasSize :: proc(out: ^[7]f64) ---
+		@(link_name = "updateSizeInfo")
+		_updateSizeInfo :: proc(out: ^[7]f64) ---
 	}
 	out: [7]f64
-	_updateCanvasSize(&out)
+	_updateSizeInfo(&out)
 	return {
 		window_inner_width = f32(out[0]),
 		window_inner_height = f32(out[1]),
@@ -42,16 +42,18 @@ on_resize :: proc(e: js.Event) {
 	resize()
 }
 
-_prev_sizes: CanvasSize
+_prev_sizes: SizeInfo
 
 
 resize :: proc() {
-	sizes := update_canvas_size()
+	sizes := update_size_info()
 	if sizes.dpr != _prev_sizes.dpr {
 		fmt.println("zoom changed")
+		g_state.zoom_changed = true
 	} else if sizes.window_inner_width != _prev_sizes.window_inner_width ||
 	   sizes.window_inner_height != _prev_sizes.window_inner_height {
 		fmt.println("window size changed")
+		g_state.size_changed = true
 	}
 	// fmt.println("on_resize:", sizes)
 	window_size: [2]f32 = {sizes.window_inner_width, sizes.window_inner_height}
@@ -70,11 +72,12 @@ resize :: proc() {
 	g_state.canvas_pos = canvas_pos
 	g_state.canvas_res = canvas_res
 	g_state.aspect_ratio = aspect_ratio
+	g_state.dpr = sizes.dpr
 
 	_prev_sizes = sizes
 
-	// text.writer_update_buffer_data(&g_state.writer_20, canvas_size.x)
-	// text.writer_update_buffer_data(&g_state.writer_30, canvas_size.x)
-	// text.writer_update_buffer_data(&g_state.writer_40, canvas_size.x)
+	// text.writer_update_buffer_data(&g_state.writer_20, size_info.x)
+	// text.writer_update_buffer_data(&g_state.writer_30, size_info.x)
+	// text.writer_update_buffer_data(&g_state.writer_40, size_info.x)
 }
 

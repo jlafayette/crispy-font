@@ -23,7 +23,7 @@ function setupImports(wasmMemoryInterface, consoleElement, memory) {
 	return {
 		env,
 		"odin_resize": {
-			updateCanvasSize: (ptr_array6_f64) => {
+			updateSizeInfo: (ptr_array6_f64) => {
 				const canvas = document.getElementById("canvas-1");
 				// const dpr = window.devicePixelRatio || 1;
 				const rect = canvas.getBoundingClientRect()

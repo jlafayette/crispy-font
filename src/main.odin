@@ -5,6 +5,7 @@ import "../shared/utils"
 import "core:fmt"
 import glm "core:math/linalg/glsl"
 import "core:mem"
+import "core:strings"
 import gl "vendor:wasm/WebGL"
 import "vendor:wasm/js"
 
@@ -20,6 +21,9 @@ State :: struct {
 	writer_20:    text.Writer(len(ALL_CHARS)),
 	writer_30:    text.Writer(len(ALL_CHARS)),
 	writer_40:    text.Writer(len(ALL_CHARS)),
+	writer_dpr:   text.Writer(9),
+	writer_size:  text.Writer(32),
+	writer_res:   text.Writer(32),
 	shader:       TextShader,
 	canvas_res:   [2]i32,
 	canvas_pos:   [2]f32,
@@ -27,6 +31,8 @@ State :: struct {
 	window_size:  [2]f32,
 	dpr:          f32,
 	aspect_ratio: f32,
+	size_changed: bool,
+	zoom_changed: bool,
 }
 g_state: State = {}
 
@@ -54,13 +60,13 @@ start :: proc() -> (ok: bool) {
 		fmt.println("es version:", es_major, es_minor)
 	}
 
-	on_resize({})
+	resize()
 	// canvas_w: i32 = gl.DrawingBufferWidth()
 	// canvas_h: i32 = gl.DrawingBufferHeight()
 	// g_state.canvas_w = canvas_w
 	// g_state.canvas_h = canvas_h
-	canvas_w := g_state.canvas_size.x
-	canvas_h := g_state.canvas_size.y
+	canvas_w: f32 = g_state.canvas_size.x
+	canvas_h: f32 = g_state.canvas_size.y
 
 	{
 		y: i32 = 20
@@ -96,6 +102,54 @@ start :: proc() -> (ok: bool) {
 			canvas_w,
 			false,
 		) or_return
+
+		{
+			// x = canvas_w - str_width
+			// y = 0
+			writer := &g_state.writer_dpr
+			str := "DPR: 0.00"
+			size := text.get_size(str, .A30)
+			text.writer_init(
+				&g_state.writer_dpr,
+				.A20,
+				5,
+				5,
+				str,
+				false,
+				canvas_w,
+				false,
+			) or_return
+		}
+		{
+			writer := &g_state.writer_size
+			str := "SIZE: 0.00 x 0.00"
+			size := text.get_size(str, .A20)
+			text.writer_init(
+				writer,
+				.A20,
+				i32(canvas_w) - size.x - 5,
+				5 + 20,
+				str,
+				false,
+				canvas_w,
+				false,
+			) or_return
+		}
+		{
+			writer := &g_state.writer_res
+			str := "RES: 000.00 x 000.00"
+			size := text.get_size(str, .A20)
+			text.writer_init(
+				writer,
+				.A20,
+				i32(canvas_w) - size.x - 5,
+				i32(canvas_h) - size.y - 5,
+				str,
+				false,
+				canvas_w,
+				false,
+			) or_return
+		}
 	}
 
 	text_shader_init(&g_state.shader)
@@ -109,12 +163,40 @@ start :: proc() -> (ok: bool) {
 }
 
 update :: proc(state: ^State, dt: f32) {
+	resize()
+	if state.size_changed || state.zoom_changed {
+		{
+			writer := &state.writer_dpr
+			s := fmt.tprintf("DPR: %.2f", state.dpr)
+			text.writer_set_text(&state.writer_dpr, s)
+			size := text.get_size(s, writer.size)
+			text.writer_set_pos(&state.writer_dpr, {5, i32(state.canvas_res.y) - size.y - 5})
+		}
+		{
+			writer := &state.writer_size
+			s := fmt.tprintf("SIZE: %.0f x %.0f", state.canvas_size.x, state.canvas_size.y)
+			text.writer_set_text(writer, s)
+			size := text.get_size(s, writer.size)
+			text.writer_set_pos(writer, {i32(state.canvas_res.x) - size.x - 5, 5 + 20})
+		}
+		{
+			writer := &state.writer_res
+			s := fmt.tprintf("RES: %d x %d", state.canvas_res.x, state.canvas_res.y)
+			text.writer_set_text(writer, s)
+			size := text.get_size(s, writer.size)
+			text.writer_set_pos(
+				writer,
+				{i32(state.canvas_res.x) - size.x - 5, i32(state.canvas_res.y) - size.y - 5},
+			)
+		}
+	}
+	state.size_changed = false
+	state.zoom_changed = false
 	// state.canvas_w = gl.DrawingBufferWidth()
 	// state.canvas_h = gl.DrawingBufferHeight()
 }
 
 draw :: proc(dt: f32) -> (ok: bool) {
-	on_resize({})
 	canvas_w := g_state.canvas_size.x
 	canvas_h := g_state.canvas_size.y
 	// fmt.printf("canvas: %.2fx%.2f\n", canvas_w, canvas_h)
@@ -145,7 +227,7 @@ draw :: proc(dt: f32) -> (ok: bool) {
 	{
 		uniforms: TextUniforms = {
 			projection = projection_mat,
-			color      = {1, 1, 1},
+			color      = {0.5, 0.5, 0.5},
 		}
 		{
 			writer := g_state.writer_20
@@ -171,6 +253,40 @@ draw :: proc(dt: f32) -> (ok: bool) {
 		}
 		{
 			writer := g_state.writer_40
+			text_shader_use(
+				g_state.shader,
+				uniforms,
+				writer.buffers.pos,
+				writer.buffers.tex,
+				writer.atlas.texture_info,
+			) or_return
+			text.writer_draw(&writer, canvas_w, canvas_h) or_return
+		}
+		uniforms.color = {1, 1, 1}
+		{
+			writer := g_state.writer_dpr
+			text_shader_use(
+				g_state.shader,
+				uniforms,
+				writer.buffers.pos,
+				writer.buffers.tex,
+				writer.atlas.texture_info,
+			) or_return
+			text.writer_draw(&writer, canvas_w, canvas_h) or_return
+		}
+		{
+			writer := g_state.writer_size
+			text_shader_use(
+				g_state.shader,
+				uniforms,
+				writer.buffers.pos,
+				writer.buffers.tex,
+				writer.atlas.texture_info,
+			) or_return
+			text.writer_draw(&writer, canvas_w, canvas_h) or_return
+		}
+		{
+			writer := g_state.writer_res
 			text_shader_use(
 				g_state.shader,
 				uniforms,
