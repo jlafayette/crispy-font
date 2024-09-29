@@ -227,7 +227,7 @@ draw :: proc(dt: f32) -> (ok: bool) {
 	{
 		uniforms: TextUniforms = {
 			projection = projection_mat,
-			color      = {0.5, 0.5, 0.5},
+			color      = {0.4, 0.55, 0.6},
 		}
 		{
 			writer := g_state.writer_20

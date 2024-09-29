@@ -18,10 +18,6 @@
 		canvas.height = window.innerHeight;
 		document.body.style.overflow = 'hidden';
 
-
-
-
-
 		window.addEventListener('load', function () {
 			wasmMemoryInterface = new odin.WasmMemoryInterface();
 			wasmMemoryInterface.setIntSize(4);
@@ -30,13 +26,6 @@
 			};
 			odin.runWasm("./_main.wasm", undefined, custom_imports, wasmMemoryInterface);
 		});
-		// function onWindowResize() {
-		// 	let canvas  = document.getElementById("canvas-1");
-		// 	canvas.width = window.innerWidth;
-		// 	canvas.height = window.innerHeight;
-		// 	console.log(`js onWindowResize ${canvas.width}x${canvas.height}`);
-		// }
-		// window.onresize = onWindowResize;
 	</script>
 </body>
 
