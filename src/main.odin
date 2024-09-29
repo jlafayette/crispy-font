@@ -23,9 +23,9 @@ State :: struct {
 	writer_res:   text.Writer(32),
 	shader:       TextShader,
 	canvas_res:   [2]i32,
-	canvas_pos:   [2]f32,
-	canvas_size:  [2]f32,
-	window_size:  [2]f32,
+	canvas_pos:   [2]i32,
+	canvas_size:  [2]i32,
+	window_size:  [2]i32,
 	dpr:          f32,
 	aspect_ratio: f32,
 	size_changed: bool,
@@ -48,17 +48,15 @@ arena_allocator := mem.arena_allocator(&arena)
 start :: proc() -> (ok: bool) {
 	g_state.started = true
 
-	if ok = gl.CreateCurrentContextById("canvas-1", {.stencil}); !ok {
-		return ok
-	}
+	gl.CreateCurrentContextById("canvas-1", {}) or_return
 	{
 		es_major, es_minor: i32
 		gl.GetESVersion(&es_major, &es_minor)
 		fmt.println("es version:", es_major, es_minor)
 	}
 	resize()
-	canvas_w := i32(math.round(g_state.canvas_size.x))
-	canvas_h := i32(math.round(g_state.canvas_size.y))
+	canvas_w := g_state.canvas_size.x
+	canvas_h := g_state.canvas_size.y
 
 	{
 		{
@@ -95,7 +93,7 @@ start :: proc() -> (ok: bool) {
 			text.writer_init(
 				writer,
 				20,
-				i32(canvas_w) - size.x - 5,
+				canvas_w - size.x - 5,
 				5 + 20,
 				str,
 				false,
@@ -110,8 +108,8 @@ start :: proc() -> (ok: bool) {
 			text.writer_init(
 				writer,
 				20,
-				i32(canvas_w) - size.x - 5,
-				i32(canvas_h) - size.y - 5,
+				canvas_w - size.x - 5,
+				canvas_h - size.y - 5,
 				str,
 				false,
 				canvas_w,
@@ -156,14 +154,14 @@ update :: proc(state: ^State, dt: f32) {
 			s := fmt.tprintf("DPR: %.2f", state.dpr)
 			text.writer_set_text(&state.writer_dpr, s)
 			size := text.get_size(s, writer.size)
-			text.writer_set_pos(&state.writer_dpr, {5, i32(state.canvas_res.y) - size.y - 5})
+			text.writer_set_pos(&state.writer_dpr, {5, state.canvas_res.y - size.y - 5})
 		}
 		{
 			writer := &state.writer_size
-			s := fmt.tprintf("SIZE: %.0f x %.0f", state.canvas_size.x, state.canvas_size.y)
+			s := fmt.tprintf("SIZE: %d x %d", state.canvas_size.x, state.canvas_size.y)
 			text.writer_set_text(writer, s)
 			size := text.get_size(s, writer.size)
-			text.writer_set_pos(writer, {i32(state.canvas_res.x) - size.x - 5, 5})
+			text.writer_set_pos(writer, {state.canvas_res.x - size.x - 5, 5})
 		}
 		{
 			writer := &state.writer_res
@@ -172,24 +170,19 @@ update :: proc(state: ^State, dt: f32) {
 			size := text.get_size(s, writer.size)
 			text.writer_set_pos(
 				writer,
-				{i32(state.canvas_res.x) - size.x - 5, i32(state.canvas_res.y) - size.y - 5},
+				{state.canvas_res.x - size.x - 5, state.canvas_res.y - size.y - 5},
 			)
 		}
 	}
 	state.size_changed = false
 	state.zoom_changed = false
-	// state.canvas_w = gl.DrawingBufferWidth()
-	// state.canvas_h = gl.DrawingBufferHeight()
 }
 
 draw :: proc(dt: f32) -> (ok: bool) {
-	canvas_w := i32(math.round(g_state.canvas_size.x))
-	canvas_h := i32(math.round(g_state.canvas_size.y))
-	// fmt.printf("canvas: %.2fx%.2f\n", canvas_w, canvas_h)
+	canvas_w := g_state.canvas_size.x
+	canvas_h := g_state.canvas_size.y
 
-	// gl.Viewport(0, 0, i32(g_state.canvas_size.x), i32(g_state.canvas_size.y))
 	gl.Viewport(0, 0, g_state.canvas_res.x, g_state.canvas_res.y)
-	// fmt.printf("viewport: 0,0,%dx%d\n", g_state.canvas_res.x, g_state.canvas_res.y)
 
 	gl.ClearColor(0.1, 0.1, 0.1, 1)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
@@ -200,7 +193,6 @@ draw :: proc(dt: f32) -> (ok: bool) {
 
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-	// projection_mat := glm.mat4Ortho3d(0, g_state.canvas_size.x, g_state.canvas_size.y, 0, -1, 1)
 	projection_mat := glm.mat4Ortho3d(
 		0,
 		f32(g_state.canvas_res.x),
@@ -209,7 +201,6 @@ draw :: proc(dt: f32) -> (ok: bool) {
 		-1,
 		1,
 	)
-	// fmt.println(projection_mat)
 	{
 		uniforms: TextUniforms = {
 			projection = projection_mat,
