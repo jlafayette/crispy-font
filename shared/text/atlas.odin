@@ -31,6 +31,42 @@ TextureInfo :: utils.TextureInfo
 g_atlases: Atlases
 g_initialized: bool = false
 
+
+get_closest_size :: proc(target: i32) -> (atlas_size: AtlasSize, multiplier: uint, px: uint) {
+	if target <= 25 {
+		return .A20, 1, 20
+	}
+	if target <= 35 {
+		return .A30, 1, 30
+	}
+	if target <= 50 {
+		return .A40, 1, 40
+	}
+	if target <= 70 {
+		return .A30, 2, 60
+	}
+	if target <= 85 {
+		return .A40, 2, 80
+	}
+	if target <= 105 {
+		return .A30, 3, 90
+	}
+	if target <= 135 {
+		return .A40, 3, 120
+	}
+	if target <= 155 {
+		return .A30, 5, 150
+	}
+	if target <= 170 {
+		return .A40, 4, 160
+	}
+	if target <= 190 {
+		return .A30, 6, 180
+	}
+	return .A40, 5, 200
+}
+
+
 @(private)
 init :: proc(atlases: ^Atlases) -> (ok: bool) {
 	if g_initialized {
@@ -72,6 +108,7 @@ load_texture :: proc(w, h: i32, pixels: [][1]u8) -> gl.Texture {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, cast(i32)gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, cast(i32)gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, cast(i32)gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, cast(i32)gl.NEAREST)
 	return texture
 }
 @(private = "file")

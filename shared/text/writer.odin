@@ -33,10 +33,12 @@ Writer :: struct(N: uint) {
 	buffers:        Buffers,
 	overall_height: i32,
 	size:           AtlasSize,
+	multiplier:     uint,
 }
+
 writer_init :: proc(
 	w: ^Writer($N),
-	size: AtlasSize,
+	target_size: i32,
 	xpos: i32,
 	ypos: i32,
 	str: string,
@@ -48,26 +50,29 @@ writer_init :: proc(
 ) {
 	// w.str = "Hello WOdinlingssss!"
 	init(&g_atlases)
-	w.atlas = &g_atlases[size]
-	w.size = size
+	writer_set_size(w, target_size)
 	w.dyn = dyn
 	w.wrap = wrap
 	w.xpos = xpos
 	w.ypos = ypos
 	writer_set_text(w, str)
 
-	// buffers
 	writer_update_buffer_data(w, canvas_w)
 
-	// if w.dyn {
-	// 	js.add_window_event_listener(.Key_Down, {}, on_key_down)
-	// }
-	fmt.println("writer_init", size)
 	return true
 }
 writer_destroy :: proc(w: ^Writer($N)) {
 
 }
+
+writer_set_size :: proc(w: ^Writer($N), target: i32) {
+	atlas_size, multiplier, px := get_closest_size(target)
+	w.atlas = &g_atlases[atlas_size]
+	w.size = atlas_size
+	w.multiplier = multiplier
+	w.buffered = false
+}
+
 writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: f32) {
 
 	w.overall_height = 0
@@ -81,7 +86,6 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: f32) {
 	indices_data := make([][6]u16, data_len, allocator = context.temp_allocator)
 	x: f32 = f32(w.xpos)
 	y: f32 = f32(w.ypos)
-	char_h := f32(w.atlas.h)
 	line_gap := f32(w.atlas.h) / 2
 	for ch_index := 0; ch_index < w.next_buf_i; ch_index += 1 {
 		i := ch_index * 4
@@ -102,13 +106,15 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: f32) {
 		}
 		ch: Char = w.atlas.chars[char_i]
 		// wrap to new line if needed
-		spacing := f32(w.atlas.h / 10)
+		spacing := math.round(f32(w.atlas.h / 10) * f32(w.multiplier))
+		char_w := math.round(f32(ch.w) * f32(w.multiplier))
+		char_h := math.round(f32(w.atlas.h) * f32(w.multiplier))
 		if w.wrap {
-			next_w: f32 = f32(ch.w) + spacing
+			next_w: f32 = char_w + spacing
 			line_gap: f32 = f32(w.atlas.h) / 2
 			if x + next_w >= f32(canvas_w) {
 				x = f32(w.xpos)
-				y += f32(w.atlas.h) + line_gap
+				y += char_h + line_gap
 			}
 		}
 
@@ -116,9 +122,9 @@ writer_update_buffer_data :: proc(w: ^Writer($N), canvas_w: f32) {
 		py := math.round(y)
 		pos_data[i + 0] = {px, py + char_h}
 		pos_data[i + 1] = {px, py}
-		pos_data[i + 2] = {px + f32(ch.w), py}
-		pos_data[i + 3] = {px + f32(ch.w), py + char_h}
-		x += f32(ch.w) + spacing
+		pos_data[i + 2] = {px + char_w, py}
+		pos_data[i + 3] = {px + char_w, py + char_h}
+		x += char_w + spacing
 
 		w_mult := 1.0 / f32(w.atlas.w)
 		tx := f32(ch.x) * w_mult

@@ -3,6 +3,7 @@ package game
 import "../shared/text"
 import "../shared/utils"
 import "core:fmt"
+import "core:math"
 import glm "core:math/linalg/glsl"
 import "core:mem"
 import "core:strings"
@@ -11,9 +12,6 @@ import "vendor:wasm/js"
 
 main :: proc() {}
 
-LINE1 :: "!\"#$%&'()*+,-./0123456789:;<=>?@"
-LINE2 :: "ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
-LINE3 :: "abcdefghijklmnopqrstuvwxyz{|}~"
 ALL_CHARS :: "!\"#$%&'()*+,-./0123456789:;<=>?@\nABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`\nabcdefghijklmnopqrstuvwxyz{|}~"
 
 State :: struct {
@@ -21,6 +19,7 @@ State :: struct {
 	writer_20:    text.Writer(len(ALL_CHARS)),
 	writer_30:    text.Writer(len(ALL_CHARS)),
 	writer_40:    text.Writer(len(ALL_CHARS)),
+	writer_debug: text.Writer(64),
 	writer_dpr:   text.Writer(9),
 	writer_size:  text.Writer(32),
 	writer_res:   text.Writer(32),
@@ -69,10 +68,10 @@ start :: proc() -> (ok: bool) {
 	canvas_h: f32 = g_state.canvas_size.y
 
 	{
-		y: i32 = 20
+		y: i32 = 50
 		text.writer_init(
 			&g_state.writer_20,
-			.A20,
+			20,
 			20,
 			y,
 			ALL_CHARS,
@@ -83,7 +82,7 @@ start :: proc() -> (ok: bool) {
 		y += g_state.writer_20.overall_height + 30
 		text.writer_init(
 			&g_state.writer_30,
-			.A30,
+			30,
 			20,
 			y,
 			ALL_CHARS,
@@ -94,7 +93,7 @@ start :: proc() -> (ok: bool) {
 		y += g_state.writer_30.overall_height + 40
 		text.writer_init(
 			&g_state.writer_40,
-			.A40,
+			40,
 			20,
 			y,
 			ALL_CHARS,
@@ -106,19 +105,16 @@ start :: proc() -> (ok: bool) {
 		{
 			// x = canvas_w - str_width
 			// y = 0
+			writer := &g_state.writer_debug
+			text.writer_init(writer, 20, 5, 5, "", false, canvas_w, false) or_return
+		}
+		{
+			// x = canvas_w - str_width
+			// y = 0
 			writer := &g_state.writer_dpr
 			str := "DPR: 0.00"
-			size := text.get_size(str, .A30)
-			text.writer_init(
-				&g_state.writer_dpr,
-				.A20,
-				5,
-				5,
-				str,
-				false,
-				canvas_w,
-				false,
-			) or_return
+			size := text.get_size(str, .A20)
+			text.writer_init(writer, 20, 5, 5, str, false, canvas_w, false) or_return
 		}
 		{
 			writer := &g_state.writer_size
@@ -126,7 +122,7 @@ start :: proc() -> (ok: bool) {
 			size := text.get_size(str, .A20)
 			text.writer_init(
 				writer,
-				.A20,
+				20,
 				i32(canvas_w) - size.x - 5,
 				5 + 20,
 				str,
@@ -141,7 +137,7 @@ start :: proc() -> (ok: bool) {
 			size := text.get_size(str, .A20)
 			text.writer_init(
 				writer,
-				.A20,
+				20,
 				i32(canvas_w) - size.x - 5,
 				i32(canvas_h) - size.y - 5,
 				str,
@@ -165,6 +161,15 @@ start :: proc() -> (ok: bool) {
 update :: proc(state: ^State, dt: f32) {
 	resize()
 	if state.size_changed || state.zoom_changed {
+		{
+			writer := &state.writer_debug
+			target := i32(math.round(state.dpr * 20))
+			atlas_size, multiplier, px := text.get_closest_size(target)
+			text.writer_set_size(writer, target)
+			s := fmt.tprintf("Target: %d, Actual: %d", target, px)
+			text.writer_set_text(writer, s)
+			text.writer_set_pos(writer, {5, 5})
+		}
 		{
 			writer := &state.writer_dpr
 			s := fmt.tprintf("DPR: %.2f", state.dpr)
@@ -203,9 +208,9 @@ draw :: proc(dt: f32) -> (ok: bool) {
 
 	// gl.Viewport(0, 0, i32(g_state.canvas_size.x), i32(g_state.canvas_size.y))
 	gl.Viewport(0, 0, g_state.canvas_res.x, g_state.canvas_res.y)
-	fmt.printf("viewport: 0,0,%dx%d\n", g_state.canvas_res.x, g_state.canvas_res.y)
+	// fmt.printf("viewport: 0,0,%dx%d\n", g_state.canvas_res.x, g_state.canvas_res.y)
 
-	gl.ClearColor(0.2, 0.2, 0.2, 1)
+	gl.ClearColor(0.1, 0.1, 0.1, 1)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	gl.ClearDepth(1)
 	gl.Enable(gl.DEPTH_TEST)
@@ -263,6 +268,17 @@ draw :: proc(dt: f32) -> (ok: bool) {
 			text.writer_draw(&writer, canvas_w, canvas_h) or_return
 		}
 		uniforms.color = {1, 1, 1}
+		{
+			writer := g_state.writer_debug
+			text_shader_use(
+				g_state.shader,
+				uniforms,
+				writer.buffers.pos,
+				writer.buffers.tex,
+				writer.atlas.texture_info,
+			) or_return
+			text.writer_draw(&writer, canvas_w, canvas_h) or_return
+		}
 		{
 			writer := g_state.writer_dpr
 			text_shader_use(
