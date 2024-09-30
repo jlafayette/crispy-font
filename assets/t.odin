@@ -219,11 +219,10 @@ _main :: proc(png_file: string, grid_w: int, grid_h: int) -> (ok: bool) {
 	return true
 }
 
-
 main :: proc() {
-	// do arg handling here
-
-	ok := _main("assets/exports/Sprite-20_2.png", 12, 20)
+	ok := _main("assets/exports/Sprite-12.png", 9, 12)
+	fmt.println("ok:", ok)
+	ok = _main("assets/exports/Sprite-20_2.png", 12, 20)
 	fmt.println("ok:", ok)
 	ok = _main("assets/exports/Sprite-30.png", 18, 30)
 	fmt.println("ok:", ok)

@@ -9,6 +9,7 @@ import "core:image/png"
 import gl "vendor:wasm/WebGL"
 
 // Run assets/t.odin script first
+atlas_12_data := #load("../../assets/data/data-12.jatlas")
 atlas_20_data := #load("../../assets/data/data-20.jatlas")
 atlas_30_data := #load("../../assets/data/data-30.jatlas")
 atlas_40_data := #load("../../assets/data/data-40.jatlas")
@@ -22,6 +23,7 @@ Atlas :: struct {
 }
 Atlases :: [AtlasSize]Atlas
 AtlasSize :: enum {
+	A12,
 	A20,
 	A30,
 	A40,
@@ -33,6 +35,9 @@ g_initialized: bool = false
 
 
 get_closest_size :: proc(target: i32) -> (atlas_size: AtlasSize, multiplier: uint, px: uint) {
+	if target <= 16 {
+		return .A12, 1, 12
+	}
 	if target <= 25 {
 		return .A20, 1, 20
 	}
@@ -75,6 +80,8 @@ init :: proc(atlases: ^Atlases) -> (ok: bool) {
 	for &a, size in g_atlases {
 		atlas_data: []byte
 		switch size {
+		case .A12:
+			atlas_data = atlas_12_data
 		case .A20:
 			atlas_data = atlas_20_data
 		case .A30:

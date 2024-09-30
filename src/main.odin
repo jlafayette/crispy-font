@@ -30,6 +30,7 @@ State :: struct {
 	aspect_ratio: f32,
 	size_changed: bool,
 	zoom_changed: bool,
+	res_shift:    [2]f32,
 }
 g_state: State = {}
 
@@ -198,8 +199,8 @@ draw :: proc(dt: f32) -> (ok: bool) {
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 	projection_mat := glm.mat4Ortho3d(
 		0,
-		f32(g_state.canvas_res.x),
-		f32(g_state.canvas_res.y),
+		f32(g_state.canvas_res.x) + g_state.res_shift.x,
+		f32(g_state.canvas_res.y) + g_state.res_shift.y,
 		0,
 		-1,
 		1,
@@ -261,7 +262,19 @@ step :: proc(dt: f32) -> (keep_going: bool) {
 // --- input
 
 on_key_down :: proc(e: js.Event) {
-	// fmt.println("on_key_down:", e)
+	fmt.println("on_key_down:", e.key.code)
+	dir: [2]f32
+	switch e.key.code {
+	case "KeyA":
+		dir.x -= 0.1
+	case "KeyS":
+		dir.y -= 0.1
+	case "KeyD":
+		dir.x += 0.1
+	case "KeyW":
+		dir.y += 0.1
+	}
+	g_state.res_shift += dir
 	// w := &g_state.writer3
 	// if !w.dyn {
 	// 	return
