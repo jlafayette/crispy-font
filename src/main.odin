@@ -66,58 +66,50 @@ start :: proc() -> (ok: bool) {
 				&g_state.writer_var,
 				len(ALL_CHARS),
 				20,
-				20,
-				y,
+				{20, y},
 				ALL_CHARS,
-				false,
 				canvas_w,
-				false,
 			) or_return
 		}
 		{
 			// x = canvas_w - str_width
 			// y = 0
 			writer := &g_state.writer_debug
-			text.writer_init(writer, 64, 20, 5, 5, "", false, canvas_w, false) or_return
+			text.writer_init(writer, 64, 12, {5, 5}, "", canvas_w, 2) or_return
 		}
 		{
 			// x = canvas_w - str_width
 			// y = 0
 			writer := &g_state.writer_dpr
 			str := "DPR: 0.00"
-			size := text.get_size(str, .A20)
-			text.writer_init(writer, 9, 20, 5, 5, str, false, canvas_w, false) or_return
+			text.writer_init(writer, 9, 12, {5, 5}, str, canvas_w, 2) or_return
 		}
 		{
 			writer := &g_state.writer_size
 			str := "SIZE: 0.00 x 0.00"
-			size := text.get_size(str, .A20)
+			size := text.get_size(str, .A12)
 			text.writer_init(
 				writer,
 				32,
-				20,
-				canvas_w - size.x - 5,
-				5 + 20,
+				12,
+				{canvas_w - size.x - 5, 5},
 				str,
-				false,
 				canvas_w,
-				false,
+				2,
 			) or_return
 		}
 		{
 			writer := &g_state.writer_res
 			str := "RES: 000.00 x 000.00"
-			size := text.get_size(str, .A20)
+			size := text.get_size(str, .A12)
 			text.writer_init(
 				writer,
 				32,
-				20,
-				canvas_w - size.x - 5,
-				canvas_h - size.y - 5,
+				12,
+				{canvas_w - size.x - 5, canvas_h - size.y - 5},
 				str,
-				false,
 				canvas_w,
-				false,
+				2,
 			) or_return
 		}
 	}
@@ -156,22 +148,22 @@ update :: proc(state: ^State, dt: f32) {
 		{
 			writer := &state.writer_dpr
 			s := fmt.tprintf("DPR: %.2f", state.dpr)
-			text.writer_set_text(&state.writer_dpr, s)
-			size := text.get_size(s, writer.size)
-			text.writer_set_pos(&state.writer_dpr, {5, state.canvas_res.y - size.y - 5})
+			text.writer_set_text(writer, s)
+			size := text.writer_get_size(writer, state.canvas_res.x)
+			text.writer_set_pos(writer, {5, state.canvas_res.y - size.y - 5})
 		}
 		{
 			writer := &state.writer_size
 			s := fmt.tprintf("SIZE: %d x %d", state.canvas_size.x, state.canvas_size.y)
 			text.writer_set_text(writer, s)
-			size := text.get_size(s, writer.size)
+			size := text.writer_get_size(writer, state.canvas_res.x)
 			text.writer_set_pos(writer, {state.canvas_res.x - size.x - 5, 5})
 		}
 		{
 			writer := &state.writer_res
 			s := fmt.tprintf("RES: %d x %d", state.canvas_res.x, state.canvas_res.y)
 			text.writer_set_text(writer, s)
-			size := text.get_size(s, writer.size)
+			size := text.writer_get_size(writer, state.canvas_res.x)
 			text.writer_set_pos(
 				writer,
 				{state.canvas_res.x - size.x - 5, state.canvas_res.y - size.y - 5},

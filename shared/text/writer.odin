@@ -25,8 +25,7 @@ Writer :: struct {
 	buf:            []u8,
 	next_buf_i:     int,
 	str:            string,
-	xpos:           i32,
-	ypos:           i32,
+	pos:            [2]i32,
 	atlas:          ^Atlas,
 	dyn:            bool,
 	buffered:       bool,
@@ -35,18 +34,19 @@ Writer :: struct {
 	overall_height: i32,
 	size:           AtlasSize,
 	multiplier:     uint,
+	spacing:        i32,
 }
 
 writer_init :: proc(
 	w: ^Writer,
 	buf_size: uint,
 	target_size: i32,
-	xpos: i32,
-	ypos: i32,
+	pos: [2]i32,
 	str: string,
-	dyn: bool,
 	canvas_w: i32,
-	wrap: bool,
+	spacing: i32 = -1,
+	dyn: bool = false,
+	wrap: bool = false,
 ) -> (
 	ok: bool,
 ) {
@@ -56,8 +56,12 @@ writer_init :: proc(
 	writer_set_size(w, target_size)
 	w.dyn = dyn
 	w.wrap = wrap
-	w.xpos = xpos
-	w.ypos = ypos
+	w.pos = pos
+	if spacing == -1 {
+		w.spacing = w.atlas.h / 10
+	} else {
+		w.spacing = spacing
+	}
 	writer_set_text(w, str)
 
 	writer_update_buffer_data(w, canvas_w)
@@ -68,9 +72,14 @@ writer_destroy :: proc(w: ^Writer) {
 	delete(w.buf)
 }
 
-writer_set_size :: proc(w: ^Writer, target: i32) {
+writer_set_size :: proc(w: ^Writer, target: i32, spacing: i32 = -1) {
 	atlas_size, multiplier, px := get_closest_size(target)
 	w.atlas = &g_atlases[atlas_size]
+	if spacing == -1 {
+		w.spacing = w.atlas.h / 10
+	} else {
+		w.spacing = spacing
+	}
 	w.size = atlas_size
 	w.multiplier = multiplier
 	w.buffered = false
@@ -97,16 +106,15 @@ writer_get_size :: proc(w: ^Writer, canvas_w: i32) -> [2]i32 {
 		}
 		ch: Char = w.atlas.chars[char_i]
 		// wrap to new line if needed
-		spacing := char_h / 10
 		char_w := i32(ch.w) * i32(w.multiplier)
 		if w.wrap {
-			next_w := char_w + spacing
+			next_w := char_w + w.spacing
 			if x + next_w >= canvas_w {
 				x = 0
 				y += char_h + line_gap
 			}
 		}
-		x += char_w + spacing
+		x += char_w + w.spacing
 	}
 	return {x, y + char_h}
 }
@@ -122,8 +130,8 @@ writer_update_buffer_data :: proc(w: ^Writer, canvas_w: i32) {
 	pos_data := make([][2]f32, data_len * 4, allocator = context.temp_allocator)
 	tex_data := make([][2]f32, data_len * 4, allocator = context.temp_allocator)
 	indices_data := make([][6]u16, data_len, allocator = context.temp_allocator)
-	x: i32 = w.xpos
-	y: i32 = w.ypos
+	x: i32 = w.pos.x
+	y: i32 = w.pos.y
 	char_h: i32 = w.atlas.h * i32(w.multiplier)
 	line_gap: i32 = char_h / 3
 	for ch_index := 0; ch_index < w.next_buf_i; ch_index += 1 {
@@ -136,7 +144,7 @@ writer_update_buffer_data :: proc(w: ^Writer, canvas_w: i32) {
 			if rune(char) == ' ' {
 				x += char_h / 2
 			} else if rune(char) == '\n' {
-				x = w.xpos
+				x = w.pos.x
 				y += char_h + line_gap
 			} else {
 				fmt.printf("out of range '%v'(%d)\n", rune(char), i32(char))
@@ -145,12 +153,11 @@ writer_update_buffer_data :: proc(w: ^Writer, canvas_w: i32) {
 		}
 		ch: Char = w.atlas.chars[char_i]
 		// wrap to new line if needed
-		spacing := char_h / 10
 		char_w := i32(ch.w) * i32(w.multiplier)
 		if w.wrap {
-			next_w: i32 = char_w + spacing
+			next_w: i32 = char_w + w.spacing
 			if x + next_w >= canvas_w {
-				x = w.xpos
+				x = w.pos.x
 				y += char_h + line_gap
 			}
 		}
@@ -161,7 +168,7 @@ writer_update_buffer_data :: proc(w: ^Writer, canvas_w: i32) {
 		pos_data[i + 1] = {px, py}
 		pos_data[i + 2] = {px + f32(char_w), py}
 		pos_data[i + 3] = {px + f32(char_w), py + f32(char_h)}
-		x += char_w + spacing
+		x += char_w + w.spacing
 
 		w_mult := 1.0 / f32(w.atlas.w)
 		tx := f32(ch.x) * w_mult
@@ -181,7 +188,7 @@ writer_update_buffer_data :: proc(w: ^Writer, canvas_w: i32) {
 		indices_data[ii][4] = u16(i) + 2
 		indices_data[ii][5] = u16(i) + 3
 	}
-	w.overall_height = i32(y + char_h - w.ypos)
+	w.overall_height = i32(y + char_h - w.pos.y)
 	if w.buffers._initialized {
 		{
 			buffer: utils.Buffer = w.buffers.pos
@@ -238,8 +245,7 @@ writer_set_text :: proc(w: ^Writer, str: string) {
 	}
 }
 writer_set_pos :: proc(w: ^Writer, pos: [2]i32) {
-	w.xpos = pos.x
-	w.ypos = pos.y
+	w.pos = pos
 	w.buffered = false
 }
 writer_add_char :: proc(w: ^Writer, char: u8) {
